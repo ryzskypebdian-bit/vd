@@ -230,6 +230,82 @@ local function create(className, props)
     return obj
 end
 
+local AutoSelfHeal = { Enabled = false, Conn = nil, LoopThread = nil }
+
+local function SetupHealAnimationBlocker()
+    if AutoSelfHeal.Conn then
+        pcall(function() AutoSelfHeal.Conn:Disconnect() end)
+        AutoSelfHeal.Conn = nil
+    end
+    local character = LP.Character
+    if not character then return end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    local animator = humanoid:FindFirstChildOfClass("Animator")
+    if not animator then return end
+    AutoSelfHeal.Conn = animator.AnimationPlayed:Connect(function(anim)
+        if anim.Animation and tostring(anim.Animation.AnimationId):find("95836365038528") then
+            anim:Stop(0)
+        end
+    end)
+end
+
+local function StartAutoSelfHealLoop()
+    if AutoSelfHeal.LoopThread then return end
+    AutoSelfHeal.LoopThread = task.spawn(function()
+        while AutoSelfHeal.Enabled do
+            task.wait(3)
+            if not AutoSelfHeal.Enabled then break end
+            if LP.Team and LP.Team.Name == "Killer" then continue end
+            local character = LP.Character
+            if character then
+                local checkInterractable = character:FindFirstChild("CheckInterractable")
+                local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                local isBusy = false
+                if checkInterractable and (checkInterractable:GetAttribute("isVaulting") or checkInterractable:GetAttribute("isRepairing") or checkInterractable:GetAttribute("isUnhooking") or checkInterractable:GetAttribute("isHealing") or checkInterractable:GetAttribute("isSliding")) then
+                    isBusy = true
+                end
+                if not isBusy and humanoidRootPart and humanoid and humanoid.Health < humanoid.MaxHealth then
+                    pcall(function()
+                        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+                        if remotes and remotes:FindFirstChild("Healing") then
+                            remotes.Healing.HealEvent:FireServer(humanoidRootPart, true)
+                        end
+                    end)
+                end
+            end
+        end
+        AutoSelfHeal.LoopThread = nil
+    end)
+end
+
+local function StopAutoSelfHealLoop()
+    if AutoSelfHeal.LoopThread then
+        pcall(function() task.cancel(AutoSelfHeal.LoopThread) end)
+        AutoSelfHeal.LoopThread = nil
+    end
+end
+
+local function SetAutoSelfHeal(state)
+    AutoSelfHeal.Enabled = state and true or false
+    if AutoSelfHeal.Enabled then
+        SetupHealAnimationBlocker()
+        StartAutoSelfHealLoop()
+    else
+        StopAutoSelfHealLoop()
+        if AutoSelfHeal.Conn then
+            pcall(function() AutoSelfHeal.Conn:Disconnect() end)
+            AutoSelfHeal.Conn = nil
+        end
+    end
+end
+
+LP.CharacterAdded:Connect(function()
+    task.wait(1.5)
+    if AutoSelfHeal.Enabled then SetupHealAnimationBlocker(); StartAutoSelfHealLoop() end
+end)
+
 local Moonwalk = {
     Enabled = false, GuiVisible = false, Gui = nil,
     IsActive = false, InputConn = nil,
@@ -877,43 +953,6 @@ end
 LOCAL_PLAYER.CharacterAdded:Connect(function()
     task.wait(3); if VaultSystemEnabled then AntiSlowVaultHooked = false; InstallAntiSlowHook() end
 end)
-
-local SpeedBoost={_enabled=false,_loop=nil,_value=1.27,_char=nil,_hb=nil}
-function SpeedBoost:SetValue(v)
-    self._value=v
-    if self._enabled then local c=LP.Character; if c then c:SetAttribute("speedboost",v) end end
-end
-function SpeedBoost:IsEnabled() return self._enabled end
-function SpeedBoost:Start()
-    if self._loop then pcall(function() task.cancel(self._loop) end); self._loop=nil end
-    self._char=LP.Character or LP.CharacterAdded:Wait()
-    self._enabled=true
-    self._loop=task.spawn(function()
-        while self._enabled do
-            local c=self._char
-            if c and c.Parent then c:SetAttribute("speedboost",self._value) end
-            task.wait(0.1)
-        end
-    end)
-end
-function SpeedBoost:Stop()
-    self._enabled=false
-    if self._loop then pcall(function() task.cancel(self._loop) end); self._loop=nil end
-    if self._hb then self._hb:Disconnect(); self._hb=nil end
-    local c=LP.Character
-    if c then c:SetAttribute("speedboost",1.0) end
-end
-function SpeedBoost:Toggle(s)
-    if s==nil then s=not self._enabled end
-    if s then self:Start() else self:Stop() end
-    return self._enabled
-end
-function SpeedBoost:OnRespawn(c)
-    self._char=c
-    if self._enabled then task.wait(0.5); if self._char and self._char.Parent then self._char:SetAttribute("speedboost",self._value) end end
-end
-SpeedBoost:SetValue(1.27)
-LP.CharacterAdded:Connect(function(c) SpeedBoost:OnRespawn(c) end)
 
 local ESP={_enabled=false,_loop=nil,_survivorColor=Color3.fromRGB(255,255,255),_killerColor=Color3.fromRGB(255,0,0),_tag="PlayerESP",_txtTag="PlayerESP_Txt",_cache={}}
 local function IsKiller(p)
@@ -1621,9 +1660,12 @@ CreateCycle(SurvTab,o,"Skill Mode","Legit",function(b)
     SkillCheckState.busy = false
 end); o=o+1
 CreateDivider(SurvTab,o); o=o+1
+CreateSec(SurvTab,"HEALING",o); o=o+1
+CreateToggle(SurvTab,o,"Auto Self Heal",false,function(v)
+    SetAutoSelfHeal(v)
+end); o=o+1
+CreateDivider(SurvTab,o); o=o+1
 CreateSec(SurvTab,"MOVEMENT",o); o=o+1
-CreateToggle(SurvTab,o,"Speed Boost",false,function(s) SpeedBoost:Toggle(s) end); o=o+1
-CreateSliderRow(SurvTab,o,"Speed Value",1.0,2.0,1.27,true,function(v) SpeedBoost:SetValue(v) end); o=o+1
 CreateToggle(SurvTab,o,"Auto Dodge Crouch",false,function(v)
     AutoDodgeCrouch = v
     if v then StartAutoDodgeCrouch() else StopAutoDodgeCrouch() end
@@ -1807,10 +1849,11 @@ NIEELS_Notify("NIEELS HUB", "Script loaded by "..DEVELOPER_NAME.."!", 3)
 
 YB.MouseButton1Click:Connect(function()
     _G.NIEELS.ScriptAlive=false
-    ESP:Stop(); SpeedBoost:Stop()
+    ESP:Stop()
     stopAutoStalk()
     DisableLowGraphic()
     SetStretchRes(false)
+    SetAutoSelfHeal(false)
     if _G.NIEELSAimlockHiddenSet then _G.NIEELSAimlockHiddenSet(false) end
     if StopHiddenM2Hook then StopHiddenM2Hook() end
     fn8(); StopMayersMobileHook()
