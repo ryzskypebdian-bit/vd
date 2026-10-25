@@ -1333,6 +1333,62 @@ task.spawn(function()
     end
 end)
 
+local ThemeManager = {}
+
+ThemeManager.Presets = {
+    Default = {
+        AccentColor = Color3.fromRGB(0, 255, 255),
+        BackgroundColor = Color3.fromRGB(8, 12, 20),
+        MainColor = Color3.fromRGB(14, 20, 35),
+        OutlineColor = Color3.fromRGB(0, 179, 255),
+        FontColor = Color3.fromRGB(180, 239, 255),
+    },
+    Midnight = {
+        AccentColor = Color3.fromRGB(138, 43, 226),
+        BackgroundColor = Color3.fromRGB(10, 8, 18),
+        MainColor = Color3.fromRGB(20, 15, 30),
+        OutlineColor = Color3.fromRGB(180, 100, 255),
+        FontColor = Color3.fromRGB(220, 200, 255),
+    },
+    Crimson = {
+        AccentColor = Color3.fromRGB(255, 50, 50),
+        BackgroundColor = Color3.fromRGB(20, 8, 8),
+        MainColor = Color3.fromRGB(35, 14, 14),
+        OutlineColor = Color3.fromRGB(255, 80, 80),
+        FontColor = Color3.fromRGB(255, 200, 200),
+    },
+    Emerald = {
+        AccentColor = Color3.fromRGB(0, 255, 128),
+        BackgroundColor = Color3.fromRGB(8, 20, 14),
+        MainColor = Color3.fromRGB(14, 35, 22),
+        OutlineColor = Color3.fromRGB(0, 200, 100),
+        FontColor = Color3.fromRGB(180, 255, 210),
+    },
+    Sunset = {
+        AccentColor = Color3.fromRGB(255, 170, 0),
+        BackgroundColor = Color3.fromRGB(20, 12, 8),
+        MainColor = Color3.fromRGB(35, 22, 14),
+        OutlineColor = Color3.fromRGB(255, 130, 50),
+        FontColor = Color3.fromRGB(255, 220, 180),
+    },
+    Mono = {
+        AccentColor = Color3.fromRGB(220, 220, 220),
+        BackgroundColor = Color3.fromRGB(15, 15, 15),
+        MainColor = Color3.fromRGB(28, 28, 28),
+        OutlineColor = Color3.fromRGB(150, 150, 150),
+        FontColor = Color3.fromRGB(240, 240, 240),
+    },
+    Cyberpunk = {
+        AccentColor = Color3.fromRGB(255, 0, 200),
+        BackgroundColor = Color3.fromRGB(8, 8, 20),
+        MainColor = Color3.fromRGB(20, 10, 35),
+        OutlineColor = Color3.fromRGB(0, 255, 255),
+        FontColor = Color3.fromRGB(255, 200, 255),
+    },
+}
+
+ThemeManager.CurrentTheme = "Default"
+
 local guiName="NIEELSFreemium_V2_Tabbed"
 if CoreGui:FindFirstChild(guiName) then CoreGui[guiName]:Destroy()
 elseif LP.PlayerGui:FindFirstChild(guiName) then LP.PlayerGui[guiName]:Destroy() end
@@ -1486,7 +1542,7 @@ local function SwitchTab(n)
     ActiveTab=n
 end
 
-local TBC=3
+local TBC=4
 local function CreateTab(n,dn,o)
     local b=Instance.new("TextButton")
     b.Size=UDim2.new(1/TBC,-4,1,-4); b.LayoutOrder=o; b.BackgroundColor3=TIC; b.BackgroundTransparency=1
@@ -1615,9 +1671,34 @@ local function CreateCycle(p,o,lt,bt,cb)
     return VB, L
 end
 
+local function CreateThemeCycle(p,o,lt,bt,options,cb)
+    local C=Instance.new("TextButton"); C.Size=UDim2.new(1,0,0,24)
+    C.BackgroundTransparency=1; C.Text=""; C.LayoutOrder=o; C.Parent=p; C.ZIndex=3
+    local L=Instance.new("TextLabel"); L.Size=UDim2.new(0.55,0,1,0)
+    L.BackgroundTransparency=1; L.Text=lt; L.TextColor3=Color3.fromRGB(200,200,200)
+    L.Font=Enum.Font.Code; L.TextSize=12; L.TextXAlignment=Enum.TextXAlignment.Left; L.Parent=C; L.ZIndex=3
+    local cc=Color3.fromRGB(90,120,210)
+    local VB=Instance.new("TextButton"); VB.Size=UDim2.new(0.45,0,0,18)
+    VB.Position=UDim2.new(0.55,0,0.5,-9); VB.BackgroundTransparency=1
+    VB.Text=bt; VB.TextColor3=cc; VB.Font=Enum.Font.Code; VB.TextSize=10; VB.AutoButtonColor=false; VB.Parent=C; VB.ZIndex=4
+    Instance.new("UICorner",VB).CornerRadius=UDim.new(1,0)
+    local S=Instance.new("UIStroke",VB); S.Color=cc; S.Thickness=1; S.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
+    local idx = 1
+    for i, v in ipairs(options) do if v == bt then idx = i; break end end
+    VB.MouseButton1Click:Connect(function()
+        idx = idx + 1
+        if idx > #options then idx = 1 end
+        VB.Text = options[idx]
+        cb(options[idx])
+        NIEELS_Notify(lt, "Theme: " .. options[idx], 2.0)
+    end)
+    return VB, L
+end
+
 local MainTab=CreateTab("Main","MAIN",1)
 local SurvTab=CreateTab("Survivor","SURVIVOR",2)
 local KillerTab=CreateTab("Killer","KILLER",3)
+local SettingTab=CreateTab("Setting","SETTING",4)
 
 local o=1
 CreateSec(MainTab,"VISUAL",o); o=o+1
@@ -1744,6 +1825,15 @@ CreateToggle(KillerTab,o,"Bypass Cooldown Killer",false,function(s)
     end
 end); o=o+1
 
+o=1
+CreateSec(SettingTab,"SETTING UI",o); o=o+1
+CreateThemeCycle(SettingTab,o,"Theme","Default",
+    {"Default","Midnight","Crimson","Emerald","Sunset","Mono","Cyberpunk"},
+    function(themeName)
+        ThemeManager.ApplyTheme(themeName)
+    end
+); o=o+1
+
 local SavedSize = MF.Size
 local SavedPosition = MF.Position
 local isMin=false
@@ -1843,6 +1933,136 @@ UIS.InputChanged:Connect(function(i)
         MF.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y)
     end
 end)
+
+function ThemeManager.ApplyTheme(themeName)
+    local preset = ThemeManager.Presets[themeName]
+    if not preset then return false end
+    ThemeManager.CurrentTheme = themeName
+
+    for key, color in pairs(preset) do
+        Library.Scheme[key] = color
+    end
+
+    TAC = Library.Scheme.AccentColor
+    TIC = Library.Scheme.BackgroundColor
+    ACC = Library.Scheme.AccentColor
+    ONC = Color3.fromRGB(60,200,120)
+    OFC = Library.Scheme.MainColor
+    LC = Library.Scheme.MainColor
+    TRC = Library.Scheme.BackgroundColor
+    SECT = Library.Scheme.OutlineColor
+    TXC = Library.Scheme.FontColor
+
+    pcall(function() MF.BackgroundColor3 = Library.Scheme.BackgroundColor end)
+    pcall(function() TB.BackgroundColor3 = Library.Scheme.MainColor end)
+    pcall(function() TBB.BackgroundColor3 = Library.Scheme.MainColor end)
+    pcall(function() TitleDivider.BackgroundColor3 = Library.Scheme.OutlineColor end)
+    pcall(function() TabBar.BackgroundColor3 = Library.Scheme.BackgroundColor end)
+    pcall(function() TabDivider.BackgroundColor3 = Library.Scheme.OutlineColor end)
+    pcall(function() TTL.TextColor3 = Library.Scheme.FontColor end)
+    pcall(function() TitleLogo.ImageColor3 = Library.Scheme.FontColor end)
+    pcall(function() CB.ImageColor3 = Library.Scheme.FontColor end)
+    pcall(function() MB.ImageColor3 = Library.Scheme.FontColor end)
+    pcall(function() LB.ImageColor3 = Library.Scheme.AccentColor end)
+    pcall(function() CP.BackgroundColor3 = Library.Scheme.MainColor end)
+    pcall(function() PT.TextColor3 = Library.Scheme.FontColor end)
+    pcall(function() YB.TextColor3 = Library.Scheme.FontColor end)
+    pcall(function() NB.TextColor3 = Library.Scheme.FontColor end)
+
+    pcall(function()
+        local str = MS
+        if str then str.Color = Library.Scheme.OutlineColor end
+    end)
+    pcall(function()
+        local str = LBS
+        if str then str.Color = Library.Scheme.AccentColor end
+    end)
+
+    for tabName, btn in pairs(TBN) do
+        local stroke = btn:FindFirstChildOfClass("UIStroke")
+        if stroke then stroke.Color = Library.Scheme.AccentColor end
+        if ActiveTab == tabName then
+            btn.TextColor3 = Library.Scheme.AccentColor
+        end
+    end
+
+    for tabName, scroll in pairs(TFN) do
+        scroll.ScrollBarImageColor3 = Library.Scheme.AccentColor
+        for _, desc in ipairs(scroll:GetDescendants()) do
+            pcall(function()
+                if desc:IsA("TextLabel") then
+                    if desc.TextSize == 10 then
+                        desc.TextColor3 = Library.Scheme.OutlineColor
+                    elseif desc.TextSize == 11 or desc.TextSize == 12 then
+                        desc.TextColor3 = Color3.fromRGB(200,200,200)
+                    end
+                elseif desc:IsA("UIStroke") then
+                    if desc.Parent and desc.Parent:IsA("TextButton") then
+                        desc.Color = Library.Scheme.AccentColor
+                        desc.Parent.TextColor3 = Library.Scheme.AccentColor
+                    end
+                elseif desc:IsA("Frame") then
+                    if desc.BackgroundColor3 == Color3.fromRGB(90,120,210) then
+                        desc.BackgroundColor3 = Library.Scheme.AccentColor
+                    end
+                end
+            end)
+        end
+    end
+
+    pcall(function() MiniFrame.BackgroundColor3 = Library.Scheme.MainColor end)
+    pcall(function() MiniStroke.Color = Library.Scheme.AccentColor end)
+    pcall(function() MiniGlow.ImageColor3 = Library.Scheme.AccentColor end)
+    pcall(function() MiniLogo.ImageColor3 = Library.Scheme.FontColor end)
+
+    pcall(function()
+        if Moonwalk.Gui then
+            local fr = Moonwalk.Gui:FindFirstChild("Frame")
+            if fr then
+                fr.BackgroundColor3 = Library.Scheme.MainColor
+                local st = fr:FindFirstChild("UIStroke")
+                if st then st.Color = Library.Scheme.OutlineColor end
+                local btn = fr:FindFirstChild("ActionButton")
+                if btn then
+                    if Moonwalk.Enabled then
+                        btn.TextColor3 = Library.Scheme.AccentColor
+                    else
+                        btn.TextColor3 = Library.Scheme.FontColor
+                    end
+                end
+            end
+        end
+    end)
+
+    pcall(function()
+        if StalkerGUI then
+            local fr = StalkerGUI:FindFirstChild("StalkerGrabButton")
+            if fr then
+                fr.BackgroundColor3 = Library.Scheme.MainColor
+                local st = fr:FindFirstChild("UIStroke")
+                if st then st.Color = Library.Scheme.OutlineColor end
+                local lbl = fr:FindFirstChild("TextLabel")
+                if lbl then lbl.TextColor3 = Library.Scheme.FontColor end
+            end
+        end
+    end)
+
+    pcall(function()
+        if BypassUI then
+            local btn = BypassUI:FindFirstChild("BypassGenButton")
+            if btn then
+                btn.BackgroundColor3 = Library.Scheme.MainColor
+                local st = btn:FindFirstChild("UIStroke")
+                if st then st.Color = Library.Scheme.OutlineColor end
+                local lbl = btn:FindFirstChild("TextLabel")
+                if lbl then lbl.TextColor3 = Library.Scheme.FontColor end
+            end
+        end
+    end)
+
+    NIEELS_Notify("Theme", "Applied: " .. themeName, 2.0)
+    return true
+end
 
 SwitchTab("Main")
 NIEELS_Notify("NIEELS HUB", "Script loaded by "..DEVELOPER_NAME.."!", 3)
